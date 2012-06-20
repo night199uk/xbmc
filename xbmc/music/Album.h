@@ -42,6 +42,7 @@ public:
   {
     idAlbum = -1;
     strAlbum.Empty();
+    strMusicBrainzAlbumID.Empty();
     artist.clear();
     genre.clear();
     thumbURL.Clear();
@@ -72,6 +73,7 @@ public:
 
   long idAlbum;
   CStdString strAlbum;
+  CStdString strMusicBrainzAlbumID;
   std::vector<std::string> artist;
   std::vector<std::string> genre;
   CScraperUrl thumbURL;

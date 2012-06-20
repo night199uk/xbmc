@@ -29,7 +29,11 @@ using namespace MUSIC_INFO;
 
 bool CAlbum::operator<(const CAlbum &a) const
 {
-  return strAlbum +StringUtils::Join(artist, g_advancedSettings.m_musicItemSeparator) < a.strAlbum + StringUtils::Join(a.artist, g_advancedSettings.m_musicItemSeparator);
+  if (strAlbum < a.strAlbum) return true;
+  if (strAlbum > a.strAlbum) return false;
+  if (strMusicBrainzAlbumID < a.strMusicBrainzAlbumID) return true;
+  if (strMusicBrainzAlbumID > a.strMusicBrainzAlbumID) return false;
+  return false;
 }
 
 bool CAlbum::Load(const TiXmlElement *album, bool append, bool prioritise)
@@ -38,7 +42,8 @@ bool CAlbum::Load(const TiXmlElement *album, bool append, bool prioritise)
   if (!append)
     Reset();
 
-  XMLUtils::GetString(album,"title",strAlbum);
+  XMLUtils::GetString(album,              "title", strAlbum);
+  XMLUtils::GetString(album, "musicBrainzAlbumID", strMusicBrainzAlbumID);
 
   XMLUtils::GetStringArray(album, "artist", artist, prioritise, g_advancedSettings.m_musicItemSeparator);
   XMLUtils::GetStringArray(album, "genre", genre, prioritise, g_advancedSettings.m_musicItemSeparator);
@@ -130,12 +135,13 @@ bool CAlbum::Save(TiXmlNode *node, const CStdString &tag, const CStdString& strP
 
   if (!album) return false;
 
-  XMLUtils::SetString(album,  "title", strAlbum);
-  XMLUtils::SetStringArray(album, "artist", artist);
-  XMLUtils::SetStringArray(album,  "genre", genre);
-  XMLUtils::SetStringArray(album,  "style", styles);
-  XMLUtils::SetStringArray(album,   "mood", moods);
-  XMLUtils::SetStringArray(album,  "theme", themes);
+  XMLUtils::SetString(album,                    "title", strAlbum);
+  XMLUtils::SetString(album,       "musicBrainzAlbumID", strMusicBrainzAlbumID);
+  XMLUtils::SetStringArray(album,              "artist", artist);
+  XMLUtils::SetStringArray(album,               "genre", genre);
+  XMLUtils::SetStringArray(album,               "style", styles);
+  XMLUtils::SetStringArray(album,                "mood", moods);
+  XMLUtils::SetStringArray(album,               "theme", themes);
 
   XMLUtils::SetString(album,      "review", strReview);
   XMLUtils::SetString(album,        "type", strType);

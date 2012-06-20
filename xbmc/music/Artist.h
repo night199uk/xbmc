@@ -34,7 +34,11 @@ public:
   long idArtist;
   bool operator<(const CArtist& a) const
   {
-    return strArtist < a.strArtist;
+    if (strArtist < a.strArtist) return true;
+    if (strArtist > a.strArtist) return false;
+    if (strMusicBrainzArtistID < a.strMusicBrainzArtistID) return true;
+    if (strMusicBrainzArtistID > a.strMusicBrainzArtistID) return false;
+    return false;
   }
 
   void Reset()
@@ -66,6 +70,7 @@ public:
   bool Save(TiXmlNode *node, const CStdString &tag, const CStdString& strPath);
 
   CStdString strArtist;
+  CStdString strMusicBrainzArtistID;
   std::vector<std::string> genre;
   CStdString strBiography;
   std::vector<std::string> styles;
