@@ -32,6 +32,11 @@ public:
   CReplayGain();
   ~CReplayGain();
 
+  void SetTrackGain(int trackGain);
+  void SetAlbumGain(int albumGain);
+  void SetTrackPeak(float trackPeak);
+  void SetAlbumPeak(float albumPeak);
+
   int iTrackGain; // measured in milliBels
   int iAlbumGain;
   float fTrackPeak; // 1.0 == full digital scale
