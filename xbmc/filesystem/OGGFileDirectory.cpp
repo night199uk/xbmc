@@ -20,7 +20,6 @@
  */
 
 #include "OGGFileDirectory.h"
-#include "music/tags/OggTag.h"
 #include "cores/paplayer/OggCallback.h"
 #include "File.h"
 

@@ -19,7 +19,7 @@
  *  http://www.gnu.org/copyleft/gpl.html
  *
  */
-#include "Tag.h"
+#include "MusicInfoTag.h"
 #include "DllLibid3tag.h"
 
 namespace MUSIC_INFO

@@ -20,7 +20,6 @@
  */
 
 #include "FLACcodec.h"
-#include "music/tags/FlacTag.h"
 #include "utils/log.h"
 #include "cores/AudioEngine/Utils/AEUtil.h"
 #include "music/tags/TagLoaderTagLib.h"
