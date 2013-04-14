@@ -27,6 +27,7 @@
 #include "utils/Fanart.h"
 
 class TiXmlNode;
+class CAlbum;
 
 class CArtist
 {
@@ -57,6 +58,7 @@ public:
     thumbURL.Clear();
     discography.clear();
     idArtist = -1;
+    strPath.Empty();
   }
 
   /*! \brief Load artist information from an XML file.
@@ -81,9 +83,42 @@ public:
   CStdString strDied;
   CStdString strDisbanded;
   std::vector<std::string> yearsActive;
+  CStdString strPath;
   CScraperUrl thumbURL;
   CFanart fanart;
   std::vector<std::pair<CStdString,CStdString> > discography;
 };
 
+class CArtistCredit
+{
+  friend class CAlbum;
+
+public:
+  CArtistCredit() { }
+  CArtistCredit(std::string strArtist) : m_strArtist(strArtist) { }
+  CArtistCredit(std::string strArtist, std::string strMusicBrainzArtistID)
+  : m_strArtist(strArtist), m_strMusicBrainzArtistID(strMusicBrainzArtistID)  {  }
+  bool operator<(const CArtistCredit& a) const
+  {
+    if (m_strArtist < a.m_strArtist) return true;
+    if (m_strArtist > a.m_strArtist) return false;
+    if (m_strMusicBrainzArtistID < a.m_strMusicBrainzArtistID) return true;
+    if (m_strMusicBrainzArtistID > a.m_strMusicBrainzArtistID) return false;
+    return false;
+  }
+
+  std::string GetArtist() const                { return m_strArtist; }
+  std::string GetMusicBrainzArtistID() const   { return m_strMusicBrainzArtistID; }
+  void SetArtist(const std::string &strArtist) { m_strArtist = strArtist; }
+  void setMusicBrainzArtistID(const std::string &strMusicBrainzArtistID) { m_strMusicBrainzArtistID = strMusicBrainzArtistID; }
+
+private:
+  long idArtist;
+  std::string m_strArtist;
+  std::string m_strMusicBrainzArtistID;
+  bool m_boolFeatured;
+};
+
 typedef std::vector<CArtist> VECARTISTS;
+typedef std::vector<CArtistCredit> VECARTISTCREDITS;
+

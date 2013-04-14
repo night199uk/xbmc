@@ -62,28 +62,35 @@ public:
   //! \brief Set whether or not to show a progress dialog
   void ShowDialog(bool show) { m_showDialog = show; }
 
-  /*! \brief Categorise songs into albums
+  /*! \brief Categorize FileItems into Albums, Songs, and Artists
+   This takes a list of FileItems and turns it into a tree of Albums,
+   Artists, and Songs.
    Albums are defined uniquely by the album name and album artist.
-
-   If albumartist is not available in a song, we determine it from the
-   common portion of each song's artist list.
-
-   eg the common artist for
-     Bob Dylan / Tom Petty / Roy Orbison
-     Bob Dylan / Tom Petty
-   would be "Bob Dylan / Tom Petty".
-
-   If all songs that share an album
-    1. have a non-empty album name
-    2. have at least two different primary artists
-    3. have no album artist set
-    4. and no track numbers overlap
-   we assume it is a various artists album, and set the albumartist field accordingly.
-
+   
    \param songs [in/out] list of songs to categorise - albumartist field may be altered.
    \param albums [out] albums found within these songs.
    */
-  static void CategoriseAlbums(VECSONGS &songs, VECALBUMS &albums);
+  static void FileItemsToAlbums(CFileItemList& items, VECALBUMS& albums, MAPSONGS* songsMap = NULL);
+
+  /*! \brief Fixup albums and songs
+   
+   If albumartist is not available in a song, we determine it from the
+   common portion of each song's artist list.
+   
+   eg the common artist for
+   Bob Dylan / Tom Petty / Roy Orbison
+   Bob Dylan / Tom Petty
+   would be "Bob Dylan / Tom Petty".
+   
+   If all songs that share an album
+   1. have a non-empty album name
+   2. have at least two different primary artists
+   3. have no album artist set
+   4. and no track numbers overlap
+   we assume it is a various artists album, and set the albumartist field accordingly.
+   
+   */
+  static void FixupAlbums(VECALBUMS &albums);
 
   /*! \brief Find art for albums
    Based on the albums in the folder, finds whether we have unique album art
@@ -102,13 +109,21 @@ public:
    */
   static void FindArtForAlbums(VECALBUMS &albums, const CStdString &path);
 
-  bool DownloadAlbumInfo(const CStdString& strPath, const CStdString& strArtist, const CStdString& strAlbum, bool& bCanceled, MUSIC_GRABBER::CMusicAlbumInfo& album, CGUIDialogProgress* pDialog=NULL);
-  bool DownloadArtistInfo(const CStdString& strPath, const CStdString& strArtist, bool& bCanceled, CGUIDialogProgress* pDialog=NULL);
+  INFO_RET DownloadAlbumInfo(const CAlbum& album, ADDON::ScraperPtr& scraper, MUSIC_GRABBER::CMusicAlbumInfo& albumInfo, CGUIDialogProgress* pDialog = NULL);
+  INFO_RET DownloadArtistInfo(const CArtist& artist, ADDON::ScraperPtr& scraper, MUSIC_GRABBER::CMusicArtistInfo& artistInfo, CGUIDialogProgress* pDialog = NULL);
 
   std::map<std::string, std::string> GetArtistArtwork(long id, const CArtist *artist = NULL);
 protected:
   virtual void Process();
-  int RetrieveMusicInfo(CFileItemList& items, const CStdString& strDirectory);
+
+  /*! \brief Scan in the ID3/Ogg/FLAC tags for a bunch of FileItems
+   Given a list of FileItems, scan in the tags for those FileItems
+   and populate a new FileItemList with the files that were successfully scanned.
+   Any files which couldn't be scanned (no/bad tags) are discarded in the process.
+   \param items [in] list of FileItems to scan
+   \param scannedItems [in] list to populate with the scannedItems
+   */
+  int RetrieveMusicInfo(const CStdString& strDirectory, CFileItemList& items);
 
   /*! \brief Scan in the ID3/Ogg/FLAC tags for a bunch of FileItems
     Given a list of FileItems, scan in the tags for those FileItems
@@ -138,12 +153,11 @@ protected:
   int m_scanType; // 0 - load from files, 1 - albums, 2 - artists
   CMusicDatabase m_musicDatabase;
 
-  std::set<CStdString> m_pathsToScan;
-  std::set<CAlbum> m_albumsToScan;
-  std::set<CArtist> m_artistsToScan;
-  std::set<CStdString> m_pathsToCount;
-  std::vector<long> m_artistsScanned;
-  std::vector<long> m_albumsScanned;
+  std::map<CAlbum, CAlbum> m_albumCache;
+  std::map<CArtistCredit, CArtist> m_artistCache;
+
+  std::set<std::string> m_pathsToScan;
   int m_flags;
+  CThread m_fileCountReader;
 };
 }

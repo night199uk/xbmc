@@ -21,6 +21,9 @@
 #include "Song.h"
 #include "music/tags/MusicInfoTag.h"
 #include "utils/Variant.h"
+#include "FileItem.h"
+#include "settings/AdvancedSettings.h"
+#include "utils/StringUtils.h"
 
 using namespace std;
 using namespace MUSIC_INFO;
@@ -46,6 +49,35 @@ CSong::CSong(CMusicInfoTag& tag)
   strThumb = "";
   iStartOffset = 0;
   iEndOffset = 0;
+  idSong = -1;
+  iTimesPlayed = 0;
+  iKaraokeNumber = 0;
+  iKaraokeDelay = 0;         //! Karaoke song lyrics-music delay in 1/10 seconds.
+  idAlbum = -1;
+}
+
+CSong::CSong(CFileItem& item)
+{
+  CMusicInfoTag& tag = *item.GetMusicInfoTag();
+  SYSTEMTIME stTime;
+  tag.GetReleaseDate(stTime);
+  strTitle = tag.GetTitle();
+  genre = tag.GetGenre();
+  artist = tag.GetArtist();
+  strAlbum = tag.GetAlbum();
+  albumArtist = tag.GetAlbumArtist();
+  strMusicBrainzTrackID = tag.GetMusicBrainzTrackID();
+  strComment = tag.GetComment();
+  rating = tag.GetRating();
+  iYear = stTime.wYear;
+  iTrack = tag.GetTrackAndDiskNumber();
+  iDuration = tag.GetDuration();
+  bCompilation = tag.GetCompilation();
+  embeddedArt = tag.GetCoverArtInfo();
+  strFileName = tag.GetURL().IsEmpty() ? item.GetPath() : tag.GetURL();
+  strThumb = item.GetUserMusicThumb(true);
+  iStartOffset = item.m_lStartOffset;
+  iEndOffset = item.m_lEndOffset;
   idSong = -1;
   iTimesPlayed = 0;
   iKaraokeNumber = 0;

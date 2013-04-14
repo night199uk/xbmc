@@ -153,8 +153,7 @@ bool CMusicDatabase::CreateTables()
     CLog::Log(LOGINFO, "create genre index");
     m_pDS->exec("CREATE INDEX idxGenre ON genre(strGenre)");
     CLog::Log(LOGINFO, "create artist index");
-    m_pDS->exec("CREATE INDEX idxArtist ON artist(strArtist)");
-    m_pDS->exec("CREATE UNIQUE INDEX idxArtist1 ON artist(strMusicBrainzArtistID(36))");
+    m_pDS->exec("CREATE UNIQUE INDEX idxArtist ON artist(strArtist, strMusicBrainzArtistID(36))");
     CLog::Log(LOGINFO, "create path index");
     m_pDS->exec("CREATE INDEX idxPath ON path(strPath)");
 
@@ -271,20 +270,6 @@ void CMusicDatabase::CreateViews()
               "    artist.idArtist = artistinfo.idArtist");
 }
 
-int CMusicDatabase::AddAlbum(const CAlbum &album, vector<int> &songIDs)
-{
-  // add the album
-  int idAlbum = AddAlbum(album.strAlbum, StringUtils::Join(album.artist, g_advancedSettings.m_musicItemSeparator), StringUtils::Join(album.genre, g_advancedSettings.m_musicItemSeparator), album.iYear, album.bCompilation);
-
-  SetArtForItem(idAlbum, "album", album.art);
-
-  // add the songs
-  for (VECSONGS::const_iterator i = album.songs.begin(); i != album.songs.end(); ++i)
-    songIDs.push_back(AddSong(*i, false, idAlbum));
-
-  return idAlbum;
-}
-
 int CMusicDatabase::AddSong(const CSong& song, bool bCheck, int idAlbum)
 {
   int idSong = -1;
@@ -295,21 +280,12 @@ int CMusicDatabase::AddSong(const CSong& song, bool bCheck, int idAlbum)
     if (song.strTitle.IsEmpty())
       return -1;
 
-    CStdString strPath, strFileName;
-    URIUtils::Split(song.strFileName, strPath, strFileName);
-
     if (NULL == m_pDB.get()) return -1;
     if (NULL == m_pDS.get()) return -1;
 
+    CStdString strPath, strFileName;
+    URIUtils::Split(song.strFileName, strPath, strFileName);
     int idPath = AddPath(strPath);
-    if (idAlbum < 0)
-    {
-      if (!song.albumArtist.empty())  // have an album artist
-        idAlbum = AddAlbum(song.strAlbum, StringUtils::Join(song.albumArtist, g_advancedSettings.m_musicItemSeparator), StringUtils::Join(song.genre, g_advancedSettings.m_musicItemSeparator), song.iYear, song.bCompilation);
-      else
-        idAlbum = AddAlbum(song.strAlbum, StringUtils::Join(song.artist, g_advancedSettings.m_musicItemSeparator), StringUtils::Join(song.genre, g_advancedSettings.m_musicItemSeparator), song.iYear, song.bCompilation);
-    }
-
     DWORD crc = ComputeCRC(song.strFileName);
 
     bool bInsert = true;
@@ -347,7 +323,8 @@ int CMusicDatabase::AddSong(const CSong& song, bool bCheck, int idAlbum)
       // and replacing an existing song's record if the given idSong already exists
       strSQL=PrepareSQL("replace into song (idSong,idAlbum,idPath,strArtists,strGenres,strTitle,iTrack,iDuration,iYear,dwFileNameCRC,strFileName,strMusicBrainzTrackID,iTimesPlayed,iStartOffset,iEndOffset,lastplayed,rating,comment) values (%s,%i,%i,'%s','%s','%s',%i,%i,%i,'%ul','%s','%s'",
                     strIdSong.c_str(),
-                    idAlbum, idPath, 
+                    song.idAlbum,
+                    idPath,
                     StringUtils::Join(song.artist, g_advancedSettings.m_musicItemSeparator).c_str(),
                     StringUtils::Join(song.genre, g_advancedSettings.m_musicItemSeparator).c_str(),
                     song.strTitle.c_str(),
@@ -373,18 +350,6 @@ int CMusicDatabase::AddSong(const CSong& song, bool bCheck, int idAlbum)
 
     if (!song.strThumb.empty())
       SetArtForItem(idSong, "song", "thumb", song.strThumb);
-
-    for (unsigned int index = 0; index < song.albumArtist.size(); index++)
-    {
-      int idAlbumArtist = AddArtist(song.albumArtist[index]);
-      AddAlbumArtist(idAlbumArtist, idAlbum, index > 0 ? true : false, index);
-    }
-
-    for (unsigned int index = 0; index < song.artist.size(); index++)
-    {
-      int idArtist = AddArtist(song.artist[index]);
-      AddSongArtist(idArtist, idSong, index > 0 ? true : false, index);
-    }
 
     unsigned int index = 0;
     // If this is karaoke song, change the genre to 'Karaoke' (and add it if it's not there)
@@ -425,16 +390,6 @@ int CMusicDatabase::UpdateSong(const CSong& song, int idSong /* = -1 */)
   if (idSong < 0)
     return -1;
 
-  // delete linked songs
-  // we don't delete from the song table here because
-  // AddSong will update the existing record
-  sql.Format("delete from song_artist where idSong=%d", idSong);
-  ExecuteQuery(sql);
-  sql.Format("delete from song_genre where idSong=%d", idSong);
-  ExecuteQuery(sql);
-  sql.Format("delete from karaokedata where idSong=%d", idSong);
-  ExecuteQuery(sql);
-
   CSong newSong = song;
   // Make sure newSong.idSong has a valid value (> 0)
   newSong.idSong = idSong;
@@ -446,58 +401,43 @@ int CMusicDatabase::UpdateSong(const CSong& song, int idSong /* = -1 */)
   return newSong.idSong;
 }
 
-int CMusicDatabase::AddAlbum(const CStdString& strAlbum1, const CStdString &strArtist, const CStdString& strGenre, int year, bool bCompilation)
+int CMusicDatabase::AddAlbum(const CStdString& strAlbum, const CStdString& strMusicBrainzAlbumID, const CStdString& strArtist, const CStdString& strGenre, int year, bool bCompilation)
 {
   CStdString strSQL;
   try
   {
-    CStdString strAlbum=strAlbum1;
-    strAlbum.Trim();
-
     if (NULL == m_pDB.get()) return -1;
     if (NULL == m_pDS.get()) return -1;
 
-    map <CStdString, CAlbum>::const_iterator it;
-
-    it = m_albumCache.find(strAlbum + strArtist);
-    if (it != m_albumCache.end())
-      return it->second.idAlbum;
-
-    strSQL=PrepareSQL("select * from album where strArtists='%s' and strAlbum like '%s'", strArtist.c_str(), strAlbum.c_str());
+    strSQL=PrepareSQL("select * from album where strArtists='%s' and strAlbum like '%s' and strMusicBrainzAlbumID = '%s'",
+                      strArtist.c_str(),
+                      strAlbum.c_str(),
+                      strMusicBrainzAlbumID.c_str());
     m_pDS->query(strSQL.c_str());
 
     if (m_pDS->num_rows() == 0)
     {
       m_pDS->close();
       // doesnt exists, add it
-      strSQL=PrepareSQL("insert into album (idAlbum, strAlbum, strArtists, strGenres, iYear, bCompilation) values( NULL, '%s', '%s', '%s', %i, %i)", strAlbum.c_str(), strArtist.c_str(), strGenre.c_str(), year, bCompilation);
+      strSQL=PrepareSQL("insert into album (idAlbum, strAlbum, strMusicBrainzAlbumID, strArtists, strGenres, iYear, bCompilation) values( NULL, '%s', '%s', '%s', '%s', %i, %i)", strAlbum.c_str(), strMusicBrainzAlbumID.c_str(), strArtist.c_str(), strGenre.c_str(), year, bCompilation);
       m_pDS->exec(strSQL.c_str());
 
-      CAlbum album;
-      album.idAlbum = (int)m_pDS->lastinsertid();
-      album.strAlbum = strAlbum;
-      album.artist = StringUtils::Split(strArtist, g_advancedSettings.m_musicItemSeparator);
-      m_albumCache.insert(pair<CStdString, CAlbum>(album.strAlbum + strArtist, album));
-      return album.idAlbum;
+      return (int)m_pDS->lastinsertid();
     }
     else
     {
       // exists in our database and not scanned during this scan, so we should update it as the details
       // may have changed (there's a reason we're rescanning, afterall!)
-      CAlbum album;
-      album.idAlbum = m_pDS->fv("idAlbum").get_asInt();
-      album.strAlbum = strAlbum;
-      album.artist = StringUtils::Split(strArtist, g_advancedSettings.m_musicItemSeparator);
-      m_albumCache.insert(pair<CStdString, CAlbum>(album.strAlbum + strArtist, album));
+      int idAlbum = m_pDS->fv("idAlbum").get_asInt();
       m_pDS->close();
-      strSQL=PrepareSQL("update album set strGenres='%s', iYear=%i where idAlbum=%i", strGenre.c_str(), year, album.idAlbum);
+      strSQL=PrepareSQL("update album set strGenres='%s', iYear=%i where idAlbum=%i", strGenre.c_str(), year, idAlbum);
       m_pDS->exec(strSQL.c_str());
       // and clear the link tables - these are updated in AddSong()
-      strSQL=PrepareSQL("delete from album_artist where idAlbum=%i", album.idAlbum);
+      strSQL=PrepareSQL("delete from album_artist where idAlbum=%i", idAlbum);
       m_pDS->exec(strSQL.c_str());
-      strSQL=PrepareSQL("delete from album_genre where idAlbum=%i", album.idAlbum);
+      strSQL=PrepareSQL("delete from album_genre where idAlbum=%i", idAlbum);
       m_pDS->exec(strSQL.c_str());
-      return album.idAlbum;
+      return idAlbum;
     }
   }
   catch (...)
@@ -557,43 +497,33 @@ int CMusicDatabase::AddGenre(const CStdString& strGenre1)
   return -1;
 }
 
-int CMusicDatabase::AddArtist(const CStdString& strArtist1)
+int CMusicDatabase::AddArtist(const CStdString& strArtist, const CStdString& strMusicBrainzArtistID)
 {
   CStdString strSQL;
   try
   {
-    CStdString strArtist = strArtist1;
-    strArtist.Trim();
-
-    if (strArtist.IsEmpty())
-      strArtist=g_localizeStrings.Get(13205); // Unknown
-
     if (NULL == m_pDB.get()) return -1;
     if (NULL == m_pDS.get()) return -1;
 
-    map <CStdString, int>::const_iterator it;
-
-    it = m_artistCache.find(strArtist);
-    if (it != m_artistCache.end())
-      return it->second;//.idArtist;
-
-    strSQL=PrepareSQL("select * from artist where strArtist like '%s'", strArtist.c_str());
+     strSQL = PrepareSQL("select * from artist where strArtist = '%s' and strMusicBrainzArtistID = '%s'",
+                      strArtist.c_str(),
+                      strMusicBrainzArtistID.c_str());
     m_pDS->query(strSQL.c_str());
 
     if (m_pDS->num_rows() == 0)
     {
       m_pDS->close();
       // doesnt exists, add it
-      strSQL=PrepareSQL("insert into artist (idArtist, strArtist) values( NULL, '%s' )", strArtist.c_str());
+      strSQL = PrepareSQL("insert into artist (idArtist, strArtist, strMusicBrainzArtistID) values( NULL, '%s', '%s' )",
+                        strArtist.c_str(),
+                        strMusicBrainzArtistID.c_str());
       m_pDS->exec(strSQL.c_str());
       int idArtist = (int)m_pDS->lastinsertid();
-      m_artistCache.insert(pair<CStdString, int>(strArtist1, idArtist));
       return idArtist;
     }
     else
     {
       int idArtist = (int)m_pDS->fv("idArtist").get_asInt();
-      m_artistCache.insert(pair<CStdString, int>(strArtist1, idArtist));
       m_pDS->close();
       return idArtist;
     }
@@ -1178,18 +1108,16 @@ bool CMusicDatabase::SearchArtists(const CStdString& search, CFileItemList &arti
     if (NULL == m_pDB.get()) return false;
     if (NULL == m_pDS.get()) return false;
 
-    // Exclude "Various Artists"
-    int idVariousArtist = AddArtist(g_localizeStrings.Get(340));
-
+    CStdString strVariousArtists = g_localizeStrings.Get(340).c_str();
     CStdString strSQL;
     if (search.GetLength() >= MIN_FULL_SEARCH_LENGTH)
       strSQL=PrepareSQL("select * from artist "
-                                "where (strArtist like '%s%%' or strArtist like '%% %s%%') and idArtist <> %i "
-                                , search.c_str(), search.c_str(), idVariousArtist );
+                                "where (strArtist like '%s%%' or strArtist like '%% %s%%') and strArtist <> '%s' "
+                                , search.c_str(), search.c_str(), strVariousArtists.c_str() );
     else
       strSQL=PrepareSQL("select * from artist "
-                                "where strArtist like '%s%%' and idArtist <> %i "
-                                , search.c_str(), idVariousArtist );
+                                "where strArtist like '%s%%' and strArtist <> '%s' "
+                                , search.c_str(), strVariousArtists.c_str() );
 
     if (!m_pDS->query(strSQL.c_str())) return false;
     if (m_pDS->num_rows() == 0)
@@ -2150,13 +2078,9 @@ bool CMusicDatabase::CleanupArtists()
     // (nested queries by Bobbin007)
     // must be executed AFTER the song, album and their artist link tables are cleaned.
     // don't delete the "Various Artists" string
-    CStdString strVariousArtists = g_localizeStrings.Get(340);
-    int idVariousArtists = AddArtist(strVariousArtists);
     CStdString strSQL = "delete from artist where idArtist not in (select idArtist from song_artist)";
     strSQL += " and idArtist not in (select idArtist from album_artist)";
     CStdString strSQL2;
-    strSQL2.Format(" and idArtist<>%i", idVariousArtists);
-    strSQL += strSQL2;
     m_pDS->exec(strSQL.c_str());
     m_pDS->exec("delete from artistinfo where idArtist not in (select idArtist from artist)");
     m_pDS->exec("delete from album_artist where idArtist not in (select idArtist from artist)");
@@ -3730,7 +3654,7 @@ bool CMusicDatabase::UpdateOldVersion(int version)
     m_pDS->exec("CREATE INDEX idxSong3 ON song(idAlbum)");
     m_pDS->exec("CREATE INDEX idxSong6 ON song(idPath)");
 
-    m_pDS->exec("CREATE UNIQUE INDEX idxArtist1 ON artist(strMusicBrainzArtistID(36))");
+    m_pDS->exec("CREATE UNIQUE INDEX idxArtist1 ON artist(strArtist, strMusicBrainzArtistID(36))");
   }
 
   // always recreate the views after any table change
@@ -4234,7 +4158,7 @@ bool CMusicDatabase::RemoveSongsFromPath(const CStdString &path1, MAPSONGS& song
   return false;
 }
 
-bool CMusicDatabase::GetPaths(set<CStdString> &paths)
+bool CMusicDatabase::GetPaths(set<string> &paths)
 {
   try
   {
@@ -5427,8 +5351,7 @@ bool CMusicDatabase::GetFilter(CDbUrl &musicUrl, Filter &filter, SortDescription
     if (!albumArtistsOnly)
     {
       CStdString strVariousArtists = g_localizeStrings.Get(340);
-      int idVariousArtists = AddArtist(strVariousArtists);
-      strSQL += PrepareSQL(" and artistview.idArtist <> %i", idVariousArtists);
+      strSQL += PrepareSQL(" and artistview.strArtist <> '%s'", strVariousArtists.c_str());
     }
 
     filter.AppendWhere(strSQL);
