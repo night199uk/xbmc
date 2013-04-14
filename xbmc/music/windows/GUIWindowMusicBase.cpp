@@ -398,6 +398,16 @@ void CGUIWindowMusicBase::ShowArtistInfo(const CFileItem *pItem, bool bShowInfo 
         break;
       }
 
+      // show dialog box indicating we're searching the album
+      if (m_dlgProgress && bShowInfo)
+      {
+        m_dlgProgress->SetHeading(21889);
+        m_dlgProgress->SetLine(0, artist.strArtist);
+        m_dlgProgress->SetLine(1, "");
+        m_dlgProgress->SetLine(2, "");
+        m_dlgProgress->StartModal();
+      }
+
       if (!FindArtistInfo(pItem,
                           artistInfo,
                           bShowInfo ? SELECTION_ALLOWED : SELECTION_AUTO))
@@ -455,6 +465,16 @@ void CGUIWindowMusicBase::ShowAlbumInfo(const CFileItem *pItem, bool bShowInfo /
       {
         CGUIDialogOK::ShowAndGetInput(189, 14057, 0, 0);
         break;
+      }
+
+      // show dialog box indicating we're searching the album
+      if (m_dlgProgress && bShowInfo)
+      {
+        m_dlgProgress->SetHeading(185);
+        m_dlgProgress->SetLine(0, pItem->GetMusicInfoTag()->GetAlbum());
+        m_dlgProgress->SetLine(1, StringUtils::Join(pItem->GetMusicInfoTag()->GetAlbumArtist(), g_advancedSettings.m_musicItemSeparator));
+        m_dlgProgress->SetLine(2, "");
+        m_dlgProgress->StartModal();
       }
 
       if (!FindAlbumInfo(pItem,
@@ -701,16 +721,6 @@ bool CGUIWindowMusicBase::FindAlbumInfo(const CFileItem* item, CMusicAlbumInfo& 
   if (params.GetAlbumId() != -1 && m_musicdatabase.HasAlbumInfo(params.GetArtistId()))
     m_musicdatabase.GetAlbumInfo(params.GetAlbumId(), album, &album.songs);
 
-  // show dialog box indicating we're searching the album
-  if (m_dlgProgress && allowSelection != SELECTION_AUTO)
-  {
-    m_dlgProgress->SetHeading(185);
-    m_dlgProgress->SetLine(0, album.strAlbum);
-    m_dlgProgress->SetLine(1, StringUtils::Join(album.artist, g_advancedSettings.m_musicItemSeparator));
-    m_dlgProgress->SetLine(2, "");
-    m_dlgProgress->StartModal();
-  }
-  
   // find album info
   ADDON::ScraperPtr scraper;
   if (!m_musicdatabase.GetScraperForPath(item->GetPath(), scraper, ADDON::ADDON_SCRAPER_ALBUMS) || !scraper)
@@ -755,16 +765,6 @@ bool CGUIWindowMusicBase::FindArtistInfo(const CFileItem* item, CMusicArtistInfo
   // to check if we can convert the FileItem.
   CArtist artist;
   m_musicdatabase.GetArtistInfo(params.GetArtistId(), artist);
-  
-  // show dialog box indicating we're searching the album
-  if (m_dlgProgress && allowSelection != SELECTION_AUTO)
-  {
-    m_dlgProgress->SetHeading(21889);
-    m_dlgProgress->SetLine(0, artist.strArtist);
-    m_dlgProgress->SetLine(1, "");
-    m_dlgProgress->SetLine(2, "");
-    m_dlgProgress->StartModal();
-  }
 
   // find album info
   ADDON::ScraperPtr scraper;
