@@ -111,7 +111,7 @@ public:
    \return the id of the album
    */
   int  AddSong(const CSong& song, bool bCheck = true, int idAlbum = -1);
-  bool GetSongById(int idSong, CSong& song);
+  bool GetSong(int idSong, CSong& song);
   int  UpdateSong(const CSong& song, int idSong = -1);
   // bool DeleteSong(int idSong);
 

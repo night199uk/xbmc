@@ -261,7 +261,7 @@ JSONRPC_STATUS CAudioLibrary::GetSongDetails(const CStdString &method, ITranspor
     return InternalError;
 
   CSong song;
-  if (!musicdatabase.GetSongById(idSong, song))
+  if (!musicdatabase.GetSong(idSong, song))
     return InvalidParams;
 
   CFileItemList items;
@@ -484,7 +484,7 @@ JSONRPC_STATUS CAudioLibrary::SetSongDetails(const CStdString &method, ITranspor
     return InternalError;
 
   CSong song;
-  if (!musicdatabase.GetSongById(id, song) || song.idSong != id)
+  if (!musicdatabase.GetSong(id, song) || song.idSong != id)
     return InvalidParams;
 
   if (ParameterNotNull(parameterObject, "title"))
@@ -620,7 +620,7 @@ bool CAudioLibrary::FillFileItemList(const CVariant &parameterObject, CFileItemL
   if (songID != -1)
   {
     CSong song;
-    if (musicdatabase.GetSongById(songID, song))
+    if (musicdatabase.GetSong(songID, song))
     {
       list.Add(CFileItemPtr(new CFileItem(song)));
       success = true;

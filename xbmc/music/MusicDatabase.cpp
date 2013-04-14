@@ -982,7 +982,7 @@ bool CMusicDatabase::GetSongByFileName(const CStdString& strFileName, CSong& son
     {
       CStdString strFile = URIUtils::GetFileName(strFileName);
       URIUtils::RemoveExtension(strFile);
-      return GetSongById(atol(strFile.c_str()), song);
+      return GetSong(atol(strFile.c_str()), song);
     }
 
     CStdString strPath;
@@ -1069,7 +1069,7 @@ int CMusicDatabase::GetSongByArtistAndAlbumAndTitle(const CStdString& strArtist,
   return -1;
 }
 
-bool CMusicDatabase::GetSongById(int idSong, CSong& song)
+bool CMusicDatabase::GetSong(int idSong, CSong& song)
 {
   try
   {
@@ -4781,7 +4781,7 @@ bool CMusicDatabase::GetSongByKaraokeNumber(int number, CSong & song)
     int idSong = m_pDS->fv("karaokedata.idSong").get_asInt();
     m_pDS->close();
 
-    return GetSongById( idSong, song );
+    return GetSong( idSong, song );
   }
   catch (...)
   {
